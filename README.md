@@ -8,8 +8,8 @@ Monorepo: **FastAPI** on **AWS Lambda** (HTTP API + **Mangum**), **SQLModel** + 
 
 - `backend/` — Serverless stack, FastAPI app, Alembic migrations
 - `frontend/` — React SPA (`VITE_API_BASE_URL` injected at build time)
-- `scripts/` — Deploy, migration, and GitHub Actions env helpers
-- `docs/` — Product discovery notes, AWS OIDC setup, and [micro-saas-template origin](docs/micro-saas-template-origin.md) (tracked commit for future template updates)
+- `scripts/` — Deploy, migration, Cloudflare DNS, ACM provisioning, and GitHub Actions env helpers
+- `docs/` — Product discovery notes, AWS OIDC setup, [micro-saas-template origin](docs/micro-saas-template-origin.md) (tracked commit for future template updates), and [downstream template tracking](docs/downstream-template-tracking.md)
 
 ## Prerequisites
 
@@ -79,6 +79,12 @@ AWS deployment, GitHub Actions secrets, and DNS setup are documented in [docs/gi
 ```bash
 AWS_PROFILE=your-profile ./scripts/collect-gha-env.sh
 ./scripts/push-gha-env.sh
+```
+
+Provision ACM certificates (frontend in us-east-1, API in deploy region) with Cloudflare DNS validation:
+
+```bash
+AWS_PROFILE=your-profile ./scripts/provision-acm-certs.sh
 ```
 
 Do not copy template `.env.gha` files — provision fresh AWS resources for this project.
