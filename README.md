@@ -9,7 +9,7 @@ Monorepo: **FastAPI** on **AWS Lambda** (HTTP API + **Mangum**), **SQLModel** + 
 - `backend/` — Serverless stack, FastAPI app, Alembic migrations
 - `frontend/` — React SPA (`VITE_API_BASE_URL` injected at build time)
 - `scripts/` — Deploy, migration, and GitHub Actions env helpers
-- `docs/` — Product discovery notes and AWS OIDC setup guide
+- `docs/` — Product discovery notes, AWS OIDC setup, and [micro-saas-template origin](docs/micro-saas-template-origin.md) (tracked commit for future template updates)
 
 ## Prerequisites
 
