@@ -57,3 +57,73 @@ None.
   as manually entering that child's current age.
 - A user cannot access another user's children from the mobile app (same
   404/scoping behavior as web, since it's the same endpoint).
+
+---
+
+## Tłumaczenie (PL)
+
+### 20. Profile dzieci i spersonalizowane rekomendacje na urządzeniach mobilnych
+
+#### Podsumowanie
+
+Przenieś zarządzanie profilami dzieci (zadanie 10) oraz jednoklikowe
+skróty filtra wieku „dla mojego dziecka” (zadanie 11) do aplikacji
+`mobile/`.
+
+#### Dlaczego
+
+To domyka parytet mobilny z zestawem funkcji MVP dla weba: pętla
+personalizacji (zapisz dziecko raz, otrzymuj jednoklikowo przefiltrowane
+wyniki i zanonimizowany kontekst w recenzjach wszędzie indziej) powinna
+działać tak samo, niezależnie od tego, którego klienta rodzic użył do jej
+skonfigurowania.
+
+#### Zmiany w backendzie
+
+Brak — wykorzystuje `GET/POST/PATCH/DELETE /api/children` (zadanie 10)
+oraz parametr `child_id` w `GET /api/activities` (zadanie 11) dokładnie
+tak, jak już zostały zdefiniowane.
+
+#### Zmiany w danych
+
+Brak.
+
+#### Zmiany we frontendzie
+
+- Nowy `ChildrenScreen`: lista dzieci zalogowanego użytkownika (imię,
+  wyliczony wiek), dodawanie/edycja/usuwanie, z użyciem
+  `@react-native-community/datetimepicker` (natywny odpowiednik
+  webowego `DateInput` z `@mantine/dates`) do wprowadzania daty
+  urodzenia.
+- Ekran przeglądania (zadanie 18): renderuj rząd chipów — jeden na
+  zapisane dziecko, np. „Dla Mii (4l)” — nad kontrolkami filtrów, gdy
+  użytkownik jest zalogowany i ma co najmniej jedno zapisane dziecko;
+  dotknięcie ustawia parametr zapytania `child_id` w taki sam sposób,
+  jak robi to webowy `BrowsePage.tsx`, z wyraźną możliwością powrotu do
+  ręcznego filtra wieku.
+- Dziecko zapisane lub zmodyfikowane na urządzeniu mobilnym musi być od
+  razu użyteczne do filtrowania w wersji webowej (i odwrotnie), ponieważ
+  oba klienty korzystają z tych samych danych `/api/children` — bez
+  cache’owania po stronie klienta, które mogłoby się zdezaktualizować
+  między obiema aplikacjami, poza normalnym ponownym pobraniem po
+  powrocie do ekranu.
+- i18n: wykorzystaj/rozszerz klucze już zdefiniowane dla zadań 10/11 w
+  wersji webowej.
+
+#### Poza zakresem
+
+- Jakakolwiek zmiana samej logiki rekomendacji (nadal zwykłe
+  dopasowanie zakresu wieku, zgodnie z notatką „poza zakresem” w
+  zadaniu 11) — to zadanie wyłącznie przenosi istniejące zachowanie do
+  nowego klienta.
+
+#### Kryteria akceptacji
+
+- Dziecko dodane na urządzeniu mobilnym poprawnie pojawia się na
+  webowej stronie „Moje dzieci” oraz w chipie filtra wieku, i odwrotnie.
+- Wybranie chipa dziecka na urządzeniu mobilnym daje ten sam
+  przefiltrowany zbiór wyników co ręczne wpisanie bieżącego wieku tego
+  dziecka.
+- Użytkownik nie może uzyskać dostępu do dzieci innego użytkownika z
+  aplikacji mobilnej (to samo zachowanie 404/ograniczenia zakresu co w
+  wersji webowej, ponieważ to ten sam endpoint).

@@ -76,3 +76,91 @@ much as the underlying field.
 - Tapping the "Rainy day" chip sets both weather and indoor filters and the
   URL reflects both; the list narrows accordingly.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 07. Filtr dopasowania do pogody i skrót „dzień deszczowy”
+
+#### Podsumowanie
+
+Dodaj znacznik dopasowania do pogody dla każdej aktywności i filtr dla
+niego, uzupełniając zestaw filtrów MVP z podsumowania odkrycia
+(„pogoda”). Dostarcz jednoklikowy skrót „Dzień deszczowy?” na stronie
+przeglądania — przeniesiony z listy „Przyszłych funkcji”, ponieważ okazuje
+się być niczym więcej niż tym filtrem z ustawioną z góry wartością, a nie
+osobnym systemem (bez potrzeby prawdziwej integracji z API pogodowym w
+MVP).
+
+#### Dlaczego
+
+Rodzice najczęściej sięgają po filtr pogody reaktywnie — „pada deszcz, co
+możemy dziś robić” — więc oprawa UI (przycisk-skrót) jest tak samo ważna
+jak samo pole w danych.
+
+#### Zmiany w backendzie
+
+- `backend/src/apps/activities/models.py` — dodaj:
+  - `StrEnum` `WeatherSuitability`: `any`, `sunny_only`, `rainy_friendly`.
+    Użyj istniejącego helpera `to_sql_enum` (`src/utils/db.py`) w taki
+    sam sposób, jak robią to `UserStatus`/`AuthProvider`, ponieważ to
+    mały, stabilny, zamknięty zbiór (w przeciwieństwie do `category` z
+    zadania 01).
+  - `Activity.weather_suitability: WeatherSuitability` — niepuste,
+    domyślnie `WeatherSuitability.any`.
+- `backend/src/apps/activities/routes.py` — rozszerz `GET /api/activities`
+  o opcjonalny parametr zapytania `weather: Literal["sunny", "rainy"] |
+  None`:
+  - `weather=rainy` → dołącz wiersze, gdzie `weather_suitability` to
+    `any` lub `rainy_friendly`.
+  - `weather=sunny` → dołącz wiersze, gdzie `weather_suitability` to
+    `any` lub `sunny_only`.
+  - Pominięte → brak filtrowania (bieżące zachowanie). Łączy się
+    operatorem `AND` z filtrami z zadań 03–06.
+- Rozszerz `test_routes.py` o przypadki dla każdej wartości `weather`
+  oraz domyślnej (`any`), która zawsze pasuje.
+
+#### Zmiany w danych
+
+- `make make-migrations` — nowy typ enum + kolumna,
+  `server_default='any'`, tak aby istniejące wiersze zostały poprawnie
+  uzupełnione.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- `BrowsePage.tsx`: dodaj mały rząd chipów szybkiego filtrowania
+  nad/obok istniejącego paska filtrów: „☀️ Słoneczny dzień”, „🌧️
+  Deszczowy dzień” oraz sposób powrotu do „Dowolna pogoda” — podpięte do
+  tego samego stanu filtrów `useSearchParams` (`?weather=rainy`).
+  - Chip „🌧️ Deszczowy dzień” to funkcja „sugestii na deszczowy dzień”:
+    bez osobnej strony czy logiki, tylko ta wartość filtra plus (dla
+    dodatkowej widoczności) automatyczne połączenie z `indoor=true` z
+    zadania 03, gdy użytkownik dotknie chipa opisanego właśnie jako
+    skrót — czyli dotknięcie „Dzień deszczowy” ustawia jednym kliknięciem
+    zarówno `weather=rainy`, jak i `indoor=true`, ponieważ aktywność w
+    pomieszczeniu to właśnie to, co „dzień deszczowy” oznacza dla
+    rodzica. Chip „dzień słoneczny” nie wymusza `indoor=false`
+    (ograniczenie tylko do aktywności na zewnątrz byłoby zbyt
+    restrykcyjne w ładny dzień).
+- Pokaż mały znacznik/ikonę dopasowania do pogody na kartach, gdzie
+  `weather_suitability != any`.
+- i18n: `filters.weather.sunny`, `.rainy`, `.any` — wszystkie cztery
+  pliki lokalizacji.
+
+#### Poza zakresem
+
+- Prawdziwa integracja z API pogodowym (automatyczne wykrywanie
+  dzisiejszej pogody) — wyraźnie odłożone; to zadanie to wyłącznie
+  ręcznie wybierany filtr.
+- Sugestie oparte na prognozie godzinowej.
+
+#### Kryteria akceptacji
+
+- `GET /api/activities?weather=rainy` obejmuje wiersze `any` i
+  `rainy_friendly`, wyklucza `sunny_only`.
+- Dotknięcie chipa „Dzień deszczowy” ustawia zarówno filtr pogody, jak i
+  filtr wnętrza, a URL odzwierciedla oba; lista odpowiednio się zawęża.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

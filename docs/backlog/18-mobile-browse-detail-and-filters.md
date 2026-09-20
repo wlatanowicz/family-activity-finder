@@ -68,3 +68,82 @@ None.
 - The "near me" filter correctly handles a denied location permission
   without crashing the screen (mirrors task 06's web acceptance criterion).
 - Every filter from tasks 03–07 is reachable and combinable on mobile.
+
+---
+
+## Tłumaczenie (PL)
+
+### 18. Przeglądanie, szczegóły i filtry na urządzeniach mobilnych
+
+#### Podsumowanie
+
+Przenieś webową stronę przeglądania, stronę szczegółów aktywności i
+każdy filtr (wnętrze/na zewnątrz, czas trwania, wiek, miasto, „w
+pobliżu”, pogoda) na ekrany natywne w aplikacji `mobile/` z zadania 17,
+względem dokładnie tego samego endpointu `GET /api/activities` i tych
+samych parametrów zapytania, jakie definiują już zadania 01–07.
+
+#### Dlaczego
+
+Przeglądanie + filtry to podstawowe doświadczenie „pomóż rodzicom
+odkrywać aktywności”, wokół którego zbudowany jest cały produkt (zadania
+01–07); musi istnieć na urządzeniach mobilnych, aby platforma była czymś
+więcej niż powłoką autoryzacji, i nie wymaga żadnej nowej pracy po
+stronie backendu, ponieważ API jest już niezależne od klienta.
+
+#### Zmiany w backendzie
+
+Brak — wykorzystuje `GET /api/activities` i
+`GET /api/activities/{id}` dokładnie tak, jak zdefiniowały je zadania
+01–07 dla aplikacji webowej.
+
+#### Zmiany w danych
+
+Brak.
+
+#### Zmiany we frontendzie
+
+- Nowy `BrowseScreen` w `mobile/`: pobiera `GET /api/activities`,
+  renderuje przewijaną listę kart aktywności (nazwa, znacznik kategorii,
+  adres, skrócony opis — te same pola co w webowym `BrowsePage.tsx`).
+- Nowy `ActivityDetailScreen`, otwierany po dotknięciu karty, pobiera
+  `GET /api/activities/{id}` (endpoint z zadania 02).
+- Natywne odpowiedniki UI dla każdego filtra z zadań 03–07, wszystkie
+  zasilające te same parametry zapytania, jakie buduje aplikacja webowa
+  (`is_indoor`, `max_duration_minutes`, `age_years`, `city`,
+  `lat`/`lng`, znacznik pogody): arkusz/modal filtrów to bardziej
+  naturalny wzorzec mobilny niż webowy pasek filtrów w linii — użyj
+  dowolnego natywnego wzorca (bottom sheet, dedykowany ekran filtrów),
+  który pasuje do wybranej w zadaniu 17 biblioteki nawigacji, dopóki
+  wynikowe parametry zapytania się zgadzają.
+- „W pobliżu” (zadanie 06): użyj żądania uprawnień z `expo-location` +
+  `getCurrentPositionAsync` zamiast API geolokalizacji przeglądarki; ta
+  sama zasada — wyłącznie na wyraźne żądanie, nigdy nie proś o
+  lokalizację automatycznie przy montowaniu ekranu.
+- Skrót „dzień deszczowy” (zadanie 07): przycisk jednoklikowy stosujący
+  ustawioną z góry wartość filtra pogody, tak samo jak w wersji webowej.
+- i18n: wykorzystaj/rozszerz te same klucze tłumaczeń przeniesione w
+  zadaniu 17.
+
+#### Poza zakresem
+
+- Widok mapy z zadania 13 — `react-native-maps` wymaga linkowania
+  modułów natywnych i deweloperskiego builda EAS zamiast Expo Go, co
+  jest zauważalnie większym nakładem niż ekrany oparte na listach tutaj.
+  Traktuj to jako osobne zadanie kontynuacyjne, jeśli mobilna mapa
+  będzie kiedyś potrzebna; to zadanie dostarcza wyłącznie przeglądanie
+  w widoku listy.
+- Ulubione, oceny/recenzje, profile dzieci — zadania 19–20.
+
+#### Kryteria akceptacji
+
+- Mobilny ekran przeglądania i webowa strona przeglądania
+  zwracają/wyświetlają te same aktywności dla równoważnych wyborów
+  filtrów (te same parametry zapytania względem tego samego backendu).
+- Dotknięcie aktywności otwiera jej ekran szczegółów z tymi samymi
+  danymi, jakie pokazuje webowa strona szczegółów.
+- Filtr „w pobliżu” poprawnie obsługuje odmowę uprawnienia lokalizacji
+  bez awarii ekranu (odzwierciedla kryterium akceptacji zadania 06 dla
+  weba).
+- Każdy filtr z zadań 03–07 jest dostępny i można go łączyć na
+  urządzeniach mobilnych.

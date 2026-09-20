@@ -79,3 +79,98 @@ weather or location) — the cheapest filters to ship first.
   reload; reloading the page with a filtered URL reproduces the same
   filtered list.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 03. Filtry wnętrze/na zewnątrz i czas trwania
+
+#### Podsumowanie
+
+Dodaj filtry „wnętrze/na zewnątrz” oraz „czas trwania” wskazane w zakresie
+MVP z podsumowania odkrycia. Rodzice mogą zawęzić listę przeglądania do
+aktywności pasujących do tego, czy utknęli w domu, czy mają konkretną
+ilość wolnego czasu.
+
+#### Dlaczego
+
+Te dwa filtry są zgrupowane w podsumowaniu odkrycia jako jeden zestaw
+filtrów MVP, a oba to proste kolumny skalarne bez zależności zewnętrznych
+(w przeciwieństwie do pogody czy lokalizacji) — najtańsze filtry do
+wdrożenia jako pierwsze.
+
+#### Zmiany w backendzie
+
+- `backend/src/apps/activities/models.py` — dodaj do `Activity`:
+  - `is_indoor: bool` — niepuste, domyślnie `True` (bezpieczna wartość
+    domyślna, dzięki czemu istniejące wiersze nie wymagają dodatkowej
+    logiki uzupełniania poza samą wartością domyślną).
+  - `duration_minutes: int | None` — przybliżony typowy czas trwania
+    wizyty; puste, ponieważ nie każda aktywność ma stały czas trwania
+    (np. park bez określonego czasu).
+- `backend/src/apps/activities/routes.py` — rozszerz `GET /api/activities`
+  o opcjonalne parametry zapytania:
+  - `indoor: bool | None` — gdy ustawione, filtruje `is_indoor == indoor`.
+  - `max_duration_minutes: int | None` — gdy ustawione, filtruje
+    `duration_minutes <= max_duration_minutes` (wiersze z `NULL` w czasie
+    trwania są wykluczane, gdy ten filtr jest aktywny, ponieważ nie
+    wiadomo, czy „mieszczą się w 30 minutach”).
+  - Oba parametry łączą się operatorem `AND`, zarówno ze sobą, jak i z
+    innymi filtrami; brak parametrów = brak filtrowania (zachowane
+    bieżące zachowanie).
+- Zaktualizuj `backend/src/apps/activities/tests/test_routes.py` o
+  przypadki dla każdego parametru osobno i łącznie.
+
+#### Zmiany w danych
+
+- `make make-migrations`, a następnie sprawdź:
+  `add_column("activities", "is_indoor", ...)` z `server_default="true"`,
+  tak aby migracja uzupełniła istniejące wiersze bez pustych wartości,
+  oraz `add_column("activities", "duration_minutes", ...)` jako pole
+  puste.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- `BrowsePage.tsx`: dodaj pasek filtrów nad listą:
+  - Wnętrze/Na zewnątrz/Dowolne — `SegmentedControl` (Mantine), trzy
+    opcje.
+  - Czas trwania — `Select` z przedziałami: „Dowolny”, „Poniżej 30 min”,
+    „30–60 min”, „1–2 godziny”, „2+ godziny” (mapowanie przedziału na
+    `max_duration_minutes`: 30, 60, 120, a „Dowolny”/„2+ godziny” nie
+    wysyłają parametru lub wysyłają wysoki limit — „2+ godziny” NIE
+    powinno wysyłać `max_duration_minutes`, bo oznacza „brak górnego
+    limitu”, a nie „poniżej jakiegoś maksimum”; tylko pierwsze trzy
+    przedziały mapują się na ten parametr).
+  - Stan filtrów żyje w query stringu URL (np.
+    `?indoor=true&maxDuration=60`) za pomocą `useSearchParams` z
+    `react-router-dom`, dzięki czemu przefiltrowane widoki można
+    udostępniać/zapisywać w zakładkach i przetrwają odświeżenie.
+  - Ponownie pobieraj `GET /api/activities` za każdym razem, gdy zmienia
+    się query string.
+- Pokaż znacznik `is_indoor` („Wnętrze”/„Na zewnątrz”) oraz czas trwania
+  (gdy ustawiony) na każdej karcie aktywności i na stronie szczegółów z
+  zadania 02.
+- i18n: dodaj etykiety `filters.indoor`, `filters.outdoor`, `filters.any`,
+  `filters.duration.*` dla przedziałów do wszystkich czterech plików
+  lokalizacji.
+
+#### Poza zakresem
+
+- Filtry wieku, lokalizacji i pogody (zadania 04–07) — to zadanie podpina
+  tylko wnętrze/na zewnątrz i czas trwania.
+- Zapamiętywanie preferowanych filtrów użytkownika między sesjami.
+
+#### Kryteria akceptacji
+
+- `GET /api/activities?indoor=true` zwraca tylko aktywności w
+  pomieszczeniach; `?indoor=false` — tylko na zewnątrz; brak parametru
+  zwraca wszystkie.
+- `GET /api/activities?max_duration_minutes=30` wyklucza aktywności z
+  `duration_minutes` pustym lub `> 30`.
+- Zmiana paska filtrów aktualizuje URL i listę bez pełnego przeładowania
+  strony; odświeżenie strony z przefiltrowanym URL-em odtwarza tę samą
+  przefiltrowaną listę.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

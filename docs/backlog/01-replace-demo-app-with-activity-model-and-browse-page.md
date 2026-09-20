@@ -92,3 +92,107 @@ slice that makes that literally true, even before any filtering exists.
 - Creating a row directly in the `activities` table makes it appear in the
   browse page on next load.
 - `make check` passes (tests, lint, lambda requirements export).
+
+---
+
+## Tłumaczenie (PL)
+
+### 01. Zastąp aplikację demo modelem Aktywności i stroną przeglądania
+
+#### Podsumowanie
+
+Usuń przykładową aplikację demo `items` z szablonu (backendowa aplikacja
+`demo` + lista `items` we frontendzie) i zastąp ją prawdziwym modelem
+domenowym tego produktu: `Activity`. Dostarcz pierwszy realny ekran —
+publiczną stronę „Przeglądaj aktywności”, która wyświetla wszystkie
+aktywności z bazy danych.
+
+#### Dlaczego
+
+Każde kolejne zadanie (filtry, ulubione, oceny, profile dzieci) potrzebuje
+tabeli `Activity` i endpointu listującego jako fundamentu. MVP z
+podsumowania odkrycia zaczyna się od „pomóż rodzicom odkrywać aktywności”
+— to zadanie jest najmniejszym wycinkiem, który dosłownie to realizuje,
+jeszcze zanim pojawi się jakiekolwiek filtrowanie.
+
+#### Zmiany w backendzie
+
+- Usuń `backend/src/apps/demo/` (models, routes, api_errors, `__init__.py`).
+- Usuń import `demo_router`/wywołanie `include_router` w
+  `backend/src/main.py`.
+- Usuń test aplikacji demo w `backend/tests/test_main.py`
+  (`test_list_items_without_database` oraz asercje dotyczące
+  `/api/items`).
+- Dodaj pakiet `backend/src/apps/activities/`:
+  - `models.py` — tabela SQLModel `Activity` o nazwie `activities`:
+    - `id: UUID` — klucz główny, `default_factory=uuid4`
+    - `name: str` — `max_length=255`, indeksowane
+    - `description: str` — dowolny tekst (użyj `sa_column=Column(Text)`)
+    - `address: str` — dowolny tekst z adresem/miejscem, `max_length=500`
+    - `category: str` — `max_length=50`, indeksowane. Nie jako enum w
+      bazie danych: taksonomia będzie się rozrastać i nie powinna
+      wymagać migracji za każdym razem. Zamiast tego waliduj względem
+      listy `Literal`/stałych na poziomie API (proponowany zestaw
+      startowy: `outdoor_play`, `museum_culture`, `sports`,
+      `nature_hiking`, `arts_crafts`, `entertainment`,
+      `water_activities`, `other`).
+    - `created_at: datetime` — `Column(DateTime(timezone=True))`,
+      wartość domyślna ustawiana po stronie serwera
+      (`default_factory=lambda: datetime.now(UTC)`)
+  - `api_errors.py` — `StrEnum` `ApiErrorCode` z `activity_not_found`
+    (używane od zadania 02, zdefiniuj już teraz dla spójności z plikami
+    `api_errors.py` innych aplikacji).
+  - `routes.py` — `APIRouter(prefix="/api/activities", tags=["activities"])`:
+    - `GET /api/activities` — zwraca
+      `{"activities": [{id, name, description, address, category}, ...]}`.
+      Gdy `get_db_session` zwróci `None`, zwróć
+      `{"activities": [], "detail": "database not configured", "detail_code": "database_not_configured"}`
+      (ten sam kształt, jakiego używała aplikacja demo, dzięki czemu
+      obsługa błędów w `App.tsx` działa bez zmian).
+  - `__init__.py`
+- Zarejestruj `activities_router` w `backend/src/main.py` w miejsce
+  `demo_router`.
+
+#### Zmiany w danych
+
+- Wygeneruj migrację Alembic wewnątrz uruchomionego stosu:
+  `make make-migrations` (autogenerate), a następnie sprawdź wygenerowany
+  plik — powinien zawierać `drop_table("items")` i
+  `create_table("activities")`.
+- Zastosuj przez `make migrate`.
+- Na razie brak danych startowych — pusta lista jest akceptowalnym
+  (choć mało ekscytującym) rezultatem tego zadania; zadanie 12 daje
+  zespołowi sposób na wprowadzenie prawdziwych aktywności.
+
+#### Zmiany we frontendzie
+
+- `frontend/src/App.tsx`:
+  - Usuń typ `ItemsResponse`, stan `items` oraz blok
+    pobierania/renderowania `/api/items`.
+  - Dodaj typ `Activity` (`{id, name, description, address, category}`)
+    oraz stan `activities`, pobierany z `GET /api/activities` w taki sam
+    sposób, w jaki wcześniej pobierano `items`.
+  - Wyrenderuj `Paper` „Przeglądaj aktywności” z `List`/kartą dla każdej
+    aktywności pokazującą nazwę, `Badge` kategorii, adres i skrócony
+    opis. Stan pusty: „Brak aktywności”.
+- `frontend/src/i18n/locales/en.json`: zastąp klucz `items` kluczem
+  `activities` (`title`, `empty`) oraz `errors.itemsRequestFailed`
+  kluczem `errors.activitiesRequestFailed`. Wprowadź te same zmiany nazw
+  kluczy w `de.json`, `pl.json`, `uk.json` (przetłumacz teksty — nie
+  zostawiaj angielskich napisów w tamtych lokalizacjach).
+
+#### Poza zakresem
+
+- Filtrowanie, sortowanie, paginacja (zadania 03–07).
+- Widok szczegółów aktywności i routing (zadanie 02).
+- Wszystko związane z tworzeniem/edycją aktywności (zadanie 12).
+
+#### Kryteria akceptacji
+
+- `GET /api/items` oraz aplikacja `demo` nie istnieją już nigdzie w
+  repozytorium.
+- `GET /api/activities` zwraca `{"activities": []}` dla świeżej,
+  zmigrowanej bazy danych.
+- Utworzenie wiersza bezpośrednio w tabeli `activities` powoduje, że
+  pojawia się on na stronie przeglądania po następnym załadowaniu.
+- `make check` przechodzi (testy, lint, eksport wymagań lambdy).

@@ -87,3 +87,103 @@ task 11 spends it.
 - Signed-out access to `/children` does not error the app — it prompts to
   sign in.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 10. Profile dzieci
+
+#### Podsumowanie
+
+Pozwól zalogowanym rodzicom zapisać na koncie jeden lub więcej profili
+dzieci (imię + data urodzenia), ze stroną zarządzania „Moje dzieci”. To
+zadanie nie zmienia jeszcze doświadczenia przeglądania — to podłączenie
+jest zadaniem 11 — to wyłącznie ekran wprowadzania/zarządzania danymi.
+
+#### Dlaczego
+
+Ręczne wpisywanie wieku w filtrze (zadanie 04) działa, ale prawdziwym
+wyróżnikiem produktu według podsumowania odkrycia („silnik decyzyjny, a
+nie kolejny katalog”) jest personalizacja — wiedza, że rodzic ma 4-latka,
+bez konieczności wpisywania tego przy każdej wizycie. To zadanie
+zapisuje te dane; zadanie 11 je wykorzystuje.
+
+#### Zmiany w backendzie
+
+- Nowa aplikacja `backend/src/apps/children/`:
+  - `models.py` — tabela `ChildProfile` o nazwie `child_profiles`:
+    `id: UUID` pk, `user_id: UUID` (`foreign_key="users.id"`,
+    indeksowane), `name: str` (`max_length=100`), `birth_date: date`,
+    `created_at: datetime`.
+  - `api_errors.py` — `ApiErrorCode.child_not_found`.
+  - `routes.py` — `APIRouter(prefix="/api/children", tags=["children"])`,
+    wszystkie trasy wymagają `Depends(get_current_user)` (z
+    `users/deps.py` z zadania 08):
+    - `GET /api/children` — lista dzieci bieżącego użytkownika, każde z
+      wyliczonym `age_years` obliczonym po stronie serwera z
+      `birth_date` (tak aby frontend nigdy nie musiał ponownie
+      implementować liczenia wieku — wykorzystywane ponownie w zadaniu
+      11).
+    - `POST /api/children` — treść `{"name": str, "birth_date": date}`.
+      Odrzuć przyszłą `birth_date` (422) oraz nierealistyczny wiek (np.
+      `birth_date` starsza niż 21 lat — zakres tego produktu to
+      aktywności dla dzieci; miękki sufit walidacji zapobiega śmieciowym
+      danym, a nie jest twardą regułą produktową).
+    - `PATCH /api/children/{child_id}` — częściowa aktualizacja,
+      ograniczona do wywołującego; 404 (`child_not_found`), jeśli id nie
+      należy do niego (nie ujawniaj istnienia cudzych wierszy przez
+      rozróżnienie 403 vs 404).
+    - `DELETE /api/children/{child_id}` — ograniczone do wywołującego,
+      idempotentne.
+  - `__init__.py`
+- Zarejestruj `children_router` w `backend/src/main.py`.
+- Testy w `backend/src/apps/children/tests/test_routes.py`: operacje CRUD
+  ograniczone do wywołującego (jeden użytkownik nie może
+  czytać/edytować/usuwać cudzego dziecka), poprawność wyliczania wieku,
+  błędy walidacji dla przyszłych/nierealistycznych dat urodzenia.
+
+#### Zmiany w danych
+
+- `make make-migrations` — nowa tabela `child_profiles`.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- Dodaj `@mantine/dates` i `dayjs` do `frontend/package.json` (pole daty
+  Mantine potrzebuje obu; jeszcze niezainstalowane).
+- Nowa `pages/ChildrenPage.tsx` pod trasą `/children` (routing z zadania
+  02):
+  - Lista dzieci zalogowanego użytkownika jako karty (imię, wyliczony
+    wiek).
+  - Formularz „Dodaj dziecko”: pole tekstowe imienia + `DateInput` na
+    datę urodzenia.
+  - Akcje edycji/usuwania dla każdego dziecka.
+  - Trasa jest dostępna/pokazywana w nawigacji tylko po zalogowaniu;
+    przekieruj (lub pokaż monit o zalogowanie), jeśli niezalogowany
+    użytkownik wejdzie bezpośrednio na `/children`.
+- Link nawigacyjny „Moje dzieci” we wspólnym nagłówku `Layout`, widoczny
+  po zalogowaniu (obok linku „Ulubione” dodanego w zadaniu 08).
+- i18n: `children.title`, `.addChild`, `.name`, `.birthDate`, `.age`,
+  `.empty`, `.deleteConfirm` — wszystkie cztery pliki lokalizacji.
+
+#### Poza zakresem
+
+- Podłączenie profili dzieci do filtrowania/rekomendacji aktywności —
+  to zadanie 11.
+- Powiązanie profilu dziecka z wysłaną recenzją w celu zanonimizowanego
+  kontekstu — to zadanie 16.
+- Zdjęcia lub dodatkowe atrybuty dziecka (zainteresowania itp.) poza
+  imieniem i datą urodzenia — utrzymane minimalnie dla MVP.
+
+#### Kryteria akceptacji
+
+- Użytkownik może dodać, edytować i usuwać dzieci; dzieci innego
+  zalogowanego użytkownika nigdy nie pojawiają się na jego liście ani
+  nie są przez niego edytowalne.
+- `age_years` zwracane przez API zgadza się z datą urodzenia (np. data
+  urodzenia dokładnie 4 lata temu od dziś raportuje `4`).
+- Niezalogowany dostęp do `/children` nie powoduje błędu aplikacji — tylko
+  monit o zalogowanie.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

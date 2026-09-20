@@ -66,3 +66,80 @@ product and doesn't need any other feature to be useful on its own.
 - The age input combines correctly with the indoor/outdoor/duration filters
   from task 03 (all present in the query string at once narrows correctly).
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 04. Filtr zakresu wieku
+
+#### Podsumowanie
+
+Dodaj zakres wieku do każdej aktywności i pozwól rodzicom filtrować listę
+przeglądania po pojedynczym wieku („odpowiednie dla mojego 4-latka”). To
+najprostsza forma pozycji „rekomendacje oparte na wieku” z zakresu MVP w
+podsumowaniu odkrycia — ręczne pole wieku, jeszcze niepowiązane z
+zapisanym profilem dziecka (ta warstwa personalizacji to zadanie 11,
+budowane na tym zadaniu).
+
+#### Dlaczego
+
+Odpowiedniość wiekowa to najczęściej oczekiwany filtr w produkcie dla
+rodziców i jest użyteczna sama w sobie, bez potrzeby żadnej innej funkcji.
+
+#### Zmiany w backendzie
+
+- `backend/src/apps/activities/models.py` — dodaj do `Activity`:
+  - `age_min_years: int | None` — puste (brak znanej dolnej granicy).
+  - `age_max_years: int | None` — puste (brak znanej górnej granicy).
+- `backend/src/apps/activities/routes.py` — rozszerz `GET /api/activities`
+  o opcjonalny parametr zapytania `age_years: int | None`. Gdy ustawiony,
+  filtruj wiersze, gdzie `(age_min_years IS NULL OR age_min_years <=
+  age_years)` ORAZ `(age_max_years IS NULL OR age_max_years >=
+  age_years)` — czyli brak granicy oznacza „brak ograniczenia po tej
+  stronie”, a nie „wyklucza wszystko”. Połącz operatorem `AND` z filtrami
+  z zadania 03.
+- Dodaj walidację: odrzucaj (`422`, standardowa walidacja FastAPI)
+  `age_years` spoza zakresu `0–17`.
+- Rozszerz `test_routes.py`: aktywność bez granic wieku pasuje do każdego
+  `age_years`; aktywność z obiema granicami pasuje tylko wewnątrz
+  zakresu; aktywność z ustawioną tylko jedną granicą jest poprawnie
+  otwarta po drugiej stronie.
+
+#### Zmiany w danych
+
+- `make make-migrations` — obie nowe kolumny puste, bez potrzeby
+  uzupełniania danych wstecz.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- Pasek filtrów w `BrowsePage.tsx`: dodaj `NumberInput` „Wiek dziecka”
+  (0–17, puste = brak filtra), podpięty do tego samego stanu filtrów
+  opartego na `useSearchParams` co zadanie 03 (`?age=4`).
+- Pokaż znacznik zakresu wieku na każdej karcie/stronie szczegółów, np.
+  „Wiek 3–8” albo „Wiek 3+” albo „Wszystkie grupy wiekowe”, gdy obie
+  granice są puste.
+- i18n: `filters.age.label`, `activities.ageRange.bounded`
+  (`"Ages {{min}}–{{max}}"`), `.minOnly` (`"Ages {{min}}+"`), `.maxOnly`
+  (`"Up to age {{max}}"`), `.any` (`"All ages"`) — dodane do wszystkich
+  czterech plików lokalizacji.
+
+#### Poza zakresem
+
+- Zapisane profile dzieci (zadanie 10) i automatyczne stosowanie wieku
+  dziecka (zadanie 11).
+- Wiele zakresów wieku na jedną aktywność (np. różne sesje dla różnych
+  grup wiekowych) — jeden zakres na aktywność wystarcza dla MVP.
+- Filtrowanie po płci — osobny wymiar, objęty zadaniem 14.
+
+#### Kryteria akceptacji
+
+- `GET /api/activities?age_years=4` obejmuje aktywność z
+  `age_min_years=3, age_max_years=8`, wyklucza tę z `age_min_years=10`
+  oraz obejmuje tę z obiema granicami pustymi.
+- Pole wieku poprawnie łączy się z filtrami wnętrze/na
+  zewnątrz/czas trwania z zadania 03 (wszystkie obecne jednocześnie w
+  query stringu poprawnie zawężają wyniki).
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

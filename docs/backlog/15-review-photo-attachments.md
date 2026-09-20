@@ -92,3 +92,106 @@ whether to go, on top of the star score and text.
 - Deleting a rating (task 09's own-rating delete) leaves no orphaned photo
   rows or stored files.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 15. Załączniki zdjęciowe do recenzji
+
+#### Podsumowanie
+
+Pozwól rodzicom dołączyć kilka zdjęć do oceny/recenzji wysłanej w zadaniu
+09. To pozostała połowa pomysłu „ocenianie z możliwością dodawania opisu
+i zdjęć” z `docs/backlog/IDEAS.md` — połowa dotycząca opisu (pole
+`comment`) została już dostarczona w ramach zadania 09, które wprost
+wymieniało załączniki zdjęciowe jako poza zakresem.
+
+#### Dlaczego
+
+`IDEAS.md` opisuje zdjęcia jako część tego samego pomysłu co pisemna
+recenzja, a nie osobny pomysł — prawdziwe zdjęcia aktywności (park, plac
+zabaw, zajęcia w trakcie) to silny sygnał zaufania dla innych rodziców
+decydujących, czy tam pójść, oprócz oceny gwiazdkowej i tekstu.
+
+#### Zmiany w backendzie
+
+- Dodaj magazyn obiektów na przesyłane obrazy (wykorzystaj dowolny
+  backend magazynowania, jaki już zapewnia szablon/infrastruktura dla
+  przesyłania plików, np. bucket kompatybilny z S3 wskazany w
+  `backend/src/config.py`/skryptach infrastruktury; jeśli jeszcze nic
+  takiego nie istnieje, uruchom najmniejszy sensowny bucket i podepnij
+  jego nazwę/region przez istniejący wzorzec ustawień, zamiast
+  wprowadzać nowy mechanizm konfiguracji).
+- `backend/src/apps/ratings/models.py` — nowa tabela `rating_photos`:
+  `id: UUID` pk, `rating_id: UUID` (`foreign_key="ratings.id"`,
+  indeksowane), `storage_key: str`, `created_at: datetime`. Ocena może
+  mieć zero lub więcej zdjęć (relacja jeden-do-wielu, a nie kolumna w
+  `ratings`).
+- `backend/src/apps/ratings/routes.py`:
+  - `POST /api/activities/{activity_id}/ratings/photos` — wymaga
+    autoryzacji, przesyłanie `multipart/form-data`, ograniczone do
+    typów obrazów (`image/jpeg`, `image/png`, `image/webp`) i limitu
+    rozmiaru (np. 5 MB); 422 dla wszystkiego innego. Wymaga, aby
+    wywołujący miał już ocenę dla tej aktywności (najpierw utwórz ocenę
+    przez endpoint z zadania 09, potem dołącz do niej zdjęcia) — 404,
+    jeśli jej nie ma. Ogranicz liczbę zdjęć na ocenę (np. 5) — 422 po
+    przekroczeniu limitu. Zapisuje plik, wstawia wiersz
+    `rating_photos`, zwraca jego id + dostępny URL.
+  - `DELETE /api/activities/{activity_id}/ratings/photos/{photo_id}` —
+    wymaga autoryzacji, ograniczone do własnej oceny wywołującego;
+    idempotentne.
+  - Rozszerz kształt każdej oceny w `GET
+    /api/activities/{activity_id}/ratings` o tablicę `photos: [{"id",
+    "url"}, ...]`.
+  - Rozszerz `DELETE .../ratings/me` (zadanie 09), aby usuwał także
+    wszelkie dołączone wiersze zdjęć i zapisane obiekty, tak aby
+    usunięcie oceny nie zostawiało osieroconych plików.
+- Testy: przesłanie kończy się sukcesem i pojawia się na liście `GET`,
+  odrzuca typy inne niż obrazy i zbyt duże pliki, egzekwuje limit zdjęć
+  na ocenę, usunięcie oceny kaskadowo usuwa jej zdjęcia, użytkownik nie
+  może usunąć cudzego zdjęcia.
+
+#### Zmiany w danych
+
+- `make make-migrations` — nowa tabela `rating_photos` z FK do `ratings`.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- Widget wysyłania oceny w `ActivityDetailPage.tsx` (zadanie 09): po
+  zapisaniu oceny pokaż kontrolkę przesyłania zdjęć (pole pliku, wybór
+  wielokrotny do limitu backendu), która wywołuje nowy endpoint
+  przesyłania dla każdego pliku; pokazuj postęp/błędy przesyłania dla
+  każdego pliku osobno, a nie jeden blokujący spinner dla całej paczki.
+- Lista recenzji: renderuj dołączone zdjęcia każdej recenzji jako mały
+  pasek miniatur; kliknięcie miniatury otwiera ją w większym rozmiarze
+  (prosty lightbox/modal wystarczy — bez potrzeby biblioteki galerii dla
+  garstki zdjęć).
+- Pozwól autorowi recenzji usuwać własne dołączone zdjęcia pojedynczo z
+  tego samego widgetu.
+- i18n: `ratings.photos.add`, `.uploading`, `.tooLarge`, `.wrongType`,
+  `.limitReached`, `.remove` — wszystkie cztery pliki lokalizacji.
+
+#### Poza zakresem
+
+- Moderacja obrazów (skanowanie nieodpowiednich treści) — oznaczone jako
+  kontynuacja, gdy realne użycie pokaże taką potrzebę, z tym samym
+  uzasadnieniem, jakie zadanie 09 podało dla moderacji recenzji ogółem.
+- Przycinanie/edycja obrazów po stronie klienta — dla MVP tylko surowe
+  przesyłanie.
+- Zdjęcia dołączane gdziekolwiek indziej niż do oceny (np. bezpośrednio
+  do `Activity` przez administratora) — to zadanie nie wpływa na
+  formularz administracyjny z zadania 12.
+
+#### Kryteria akceptacji
+
+- Zalogowany użytkownik może dołączyć zdjęcia do własnej oceny i od razu
+  zobaczyć je na publicznej liście recenzji.
+- Przesłanie pliku, który nie jest obrazem, lub pliku przekraczającego
+  limit rozmiaru jest odrzucane z przetłumaczonym błędem, a nie cichym
+  niepowodzeniem czy błędem aplikacji.
+- Usunięcie oceny (usuwanie własnej oceny z zadania 09) nie pozostawia
+  osieroconych wierszy zdjęć ani zapisanych plików.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

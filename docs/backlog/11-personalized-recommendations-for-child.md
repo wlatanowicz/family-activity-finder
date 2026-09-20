@@ -72,3 +72,87 @@ None — reuses `activities` (task 01/04) and `child_profiles` (task 10).
 - The chips only render for signed-in users with at least one saved child;
   everyone else sees the unchanged manual age input.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 11. Spersonalizowane rekomendacje „dla mojego dziecka”
+
+#### Podsumowanie
+
+Połącz profile dzieci (zadanie 10) z filtrem wieku (zadanie 04):
+zalogowani rodzice z zapisanymi dziećmi widzą na stronie przeglądania
+jednoklikowe skróty — „Dla Mii (4l)” — które stosują filtr wieku bez
+wpisywania liczby.
+
+#### Dlaczego
+
+To najmniejszy możliwy wycinek „spersonalizowanych sugestii” z listy
+Przyszłych funkcji w podsumowaniu odkrycia, na tyle tani, by wciągnąć go
+do MVP: to wrapper wygody wokół dwóch już istniejących funkcji (zadania
+04 i 10), a nie nowy system rekomendacji.
+
+#### Zmiany w backendzie
+
+- `backend/src/apps/activities/routes.py`: rozszerz `GET /api/activities`
+  o opcjonalny parametr zapytania `child_id: UUID | None`, przyjmowany
+  obok istniejącego parametru `age_years` (wzajemnie pomocnicze, nie
+  wykluczające się — `child_id` to po prostu skrót po stronie serwera,
+  który rozwiązuje się do wieku):
+  - Autoryzacja jest wymagana tylko wtedy, gdy podano `child_id`
+    (endpoint pozostaje publiczny w pozostałych przypadkach) — użyj
+    `Depends(get_current_user)` warunkowo, albo najprościej: przyjmij
+    opcjonalny token bearer i zwróć 401 tylko, gdy `child_id` jest
+    podane, a token brakuje lub jest nieprawidłowy.
+  - Rozwiąż `child_id` do bieżącego wieku dziecka (to samo wyliczenie co
+    w `GET /api/children` z zadania 10), zweryfikuj, że należy ono do
+    wywołującego użytkownika (404 `child_not_found`, jeśli nie —
+    nie pozwól sprawdzić wieku cudzego dziecka przez ten parametr), i
+    zastosuj tę samą logikę filtrowania, jakiej już używa `age_years`
+    (zadanie 04). Jeśli podano zarówno `age_years`, jak i `child_id`,
+    wygrywa `child_id` (jest bardziej precyzyjnym sygnałem).
+- Rozszerz `test_routes.py`: `child_id` poprawnie rozwiązuje się do
+  filtra wieku, 404 dla dziecka nienależącego do wywołującego, 401, gdy
+  `child_id` podano bez autoryzacji.
+
+#### Zmiany w danych
+
+Brak — wykorzystuje `activities` (zadanie 01/04) i `child_profiles`
+(zadanie 10).
+
+#### Zmiany we frontendzie
+
+- `BrowsePage.tsx`: gdy użytkownik jest zalogowany i ma co najmniej jedno
+  zapisane dziecko (pobierz `GET /api/children` raz przy zamontowaniu,
+  tak jak `ChildrenPage`), wyrenderuj rząd chipów nad paskiem filtrów:
+  jeden na dziecko, np. „Dla Mii (4l)”. Dotknięcie ustawia
+  `?childId=<id>` w stanie filtrów `useSearchParams` (zastępując
+  ręcznie ustawiony `age`), z możliwością „wyczyszczenia” z powrotem do
+  nieprzefiltrowanego/ogólnego pola wieku z zadania 04.
+  - Niezalogowani użytkownicy lub ci bez zapisanych dzieci widzą
+    niezmienione ręczne pole wieku z zadania 04 — to zadanie jest
+    dodatkiem, a nie zastąpieniem.
+- i18n: `filters.forChild` (`"For {{name}} ({{age}}y)"`), `.clear` —
+  wszystkie cztery pliki lokalizacji.
+
+#### Poza zakresem
+
+- Jakiekolwiek rankingowanie/punktacja poza istniejącym dopasowaniem
+  zakresu wieku (to funkcja „rekomendacji AI”, celowo odłożona — patrz
+  `docs/backlog/README.md`).
+- Łączenie wielu dzieci w jeden filtr (np. „aktywności dobre dla obojga
+  moich dzieci”) — dla MVP wybieramy jedno dziecko naraz.
+
+#### Kryteria akceptacji
+
+- Wybranie chipa dziecka daje ten sam przefiltrowany zbiór wyników co
+  ręczne wpisanie dokładnego bieżącego wieku tego dziecka w polu z
+  zadania 04.
+- Użytkownik nie może użyć cudzego `child_id` do filtrowania (404, brak
+  wycieku danych o wieku).
+- Chipy renderują się wyłącznie dla zalogowanych użytkowników z co
+  najmniej jednym zapisanym dzieckiem; wszyscy pozostali widzą
+  niezmienione ręczne pole wieku.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

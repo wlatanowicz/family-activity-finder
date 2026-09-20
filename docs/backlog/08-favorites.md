@@ -101,3 +101,118 @@ step after the browse/filter experience is in place.
 - `me()` behavior is unchanged after the dependency extraction (existing
   auth tests still pass without modification).
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 08. Ulubione
+
+#### Podsumowanie
+
+Pozwól zalogowanym rodzicom zapisywać aktywności na osobistej liście
+ulubionych i przeglądać tę listę na dedykowanej stronie. To pozycja
+„Ulubione” z zakresu MVP w podsumowaniu odkrycia.
+
+#### Dlaczego
+
+Ulubione to najprostsza funkcja angażująca, jaką umożliwia autoryzacja już
+przygotowana przez szablon, i nie jest wymaganiem wstępnym dla niczego
+innego — dobry kolejny krok po tym, jak istnieje już przeglądanie/filtry.
+
+#### Zmiany w backendzie
+
+- **Refaktoryzacja wstępna:** endpoint `me()` w
+  `backend/src/apps/users/routes.py` obecnie wbudowuje dekodowanie tokena
+  bearer + wyszukiwanie użytkownika. Wydziel to do współdzielonej
+  zależności, tak aby to i kolejne zadania (09, 10) nie duplikowały
+  logiki:
+  - Dodaj `backend/src/apps/users/deps.py` z `get_current_user(creds:
+    HTTPAuthorizationCredentials | None = Depends(bearer), session:
+    Session | None = Depends(get_db_session)) -> User`, zawierającym
+    dokładnie te same sprawdzenia, co obecnie w `me()` (503 przy braku
+    sesji, 401 przy braku/błędnych poświadczeniach, 401 przy błędzie
+    `decode_token` poprzez `jwt.PyJWTError`, następnie wczytanie wiersza
+    `User` — wykorzystaj te same sprawdzenia wyszukiwania/
+    `user_not_found`/statusu nieaktywnego, jakie już wykonuje `me()`).
+  - Zaktualizuj `me()`, aby korzystał z `Depends(get_current_user)`
+    zamiast wbudowanej logiki; potwierdź, że
+    `backend/src/apps/users/tests/test_routes.py` nadal przechodzi bez
+    zmian (zachowanie nie może się zmienić, tylko lokalizacja kodu).
+- Nowa aplikacja `backend/src/apps/favorites/`:
+  - `models.py` — tabela `Favorite` o nazwie `favorites`: `id: UUID` pk,
+    `user_id: UUID` (`foreign_key="users.id"`, indeksowane),
+    `activity_id: UUID` (`foreign_key="activities.id"`, indeksowane),
+    `created_at: datetime`. `UniqueConstraint("user_id", "activity_id")`
+    — zapisanie dwa razy to operacja bez efektu, a nie zduplikowany
+    wiersz.
+  - `api_errors.py` — `ApiErrorCode.activity_not_found` (wykorzystaj
+    wartość kodu z aplikacji activities lub zdefiniuj lokalnie ten sam
+    ciąg znaków — zachowaj spójność dla `translateApiError` we
+    frontendzie), `already_favorited` NIE jest błędem (patrz niżej — to
+    operacja idempotentna).
+  - `routes.py` — `APIRouter(prefix="/api/favorites", tags=["favorites"])`,
+    wszystkie trasy wymagają `Depends(get_current_user)`:
+    - `GET /api/favorites` — lista ulubionych aktywności bieżącego
+      użytkownika, połączona z `Activity`, w tym samym skróconym
+      kształcie co `GET /api/activities`.
+    - `POST /api/favorites` — treść `{"activity_id": UUID}`; 404
+      `activity_not_found`, jeśli aktywność nie istnieje; w przeciwnym
+      razie wstaw-lub-zignoruj (idempotentne — wywołanie dwa razy dla tej
+      samej aktywności zwraca 200/201 za każdym razem, a nie błąd
+      konfliktu).
+    - `DELETE /api/favorites/{activity_id}` — usuwa ulubione, jeśli
+      istnieje; 200/204 nawet jeśli nie było ulubione (idempotentne
+      usuwanie).
+  - `__init__.py`
+- Zarejestruj `favorites_router` w `backend/src/main.py`.
+- Testy w `backend/src/apps/favorites/tests/test_routes.py`: 401 bez
+  tokena, 404 dla nieznanej aktywności, idempotentne dodawanie/usuwanie,
+  zakres listy (ulubione jednego użytkownika nie przeciekają do `GET`
+  innego).
+
+#### Zmiany w danych
+
+- `make make-migrations` — nowa tabela `favorites` z powyższym
+  ograniczeniem FK/unikalności.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- `frontend/src/auth/api.ts` (lub nowy `favorites/api.ts`): cienkie
+  wrappery fetch dla trzech endpointów, dołączające przechowywany token
+  bearer w taki sam sposób jak `loadMe`.
+- Karta aktywności (`BrowsePage.tsx`) i `ActivityDetailPage.tsx`: przycisk
+  z ikoną serca/zapisu.
+  - Niezalogowany: przycisk jest nadal widoczny, ale kliknięcie pokazuje
+    przetłumaczony monit o zalogowanie (nie ukrywaj funkcji — tak
+    użytkownik dowiaduje się, że istnieje).
+  - Zalogowany: przełącza stan ulubionego optymistycznie, wywołuje
+    `POST`/`DELETE`, synchronizuje w razie błędu.
+- Nowa `pages/FavoritesPage.tsx` pod trasą `/favorites` (rozszerza
+  routing z zadania 02): pobiera `GET /api/favorites`, renderuje ten sam
+  komponent karty co strona przeglądania; stan pusty zachęca do
+  przeglądania i zapisywania aktywności. Dodaj link nawigacyjny w
+  wspólnym nagłówku `Layout`, widoczny tylko po zalogowaniu.
+- i18n: `favorites.title`, `.empty`, `.signInToSave`, `.save`, `.saved`
+  — wszystkie cztery pliki lokalizacji.
+
+#### Poza zakresem
+
+- Ulubione per dziecko (np. „zapisz specjalnie dla Mii”) — ulubione są
+  przypisane do konta w MVP; profile dzieci (zadanie 10) nie łączą się z
+  ulubionymi.
+- Powiadomienia/przypomnienia o ulubionych aktywnościach.
+
+#### Kryteria akceptacji
+
+- Niezalogowani użytkownicy widzą przycisk zapisu, ale są proszeni o
+  zalogowanie, a nie po cichu blokowani lub pozbawieni tej opcji.
+- Zapisanie tej samej aktywności dwukrotnie nie tworzy dwóch wierszy ani
+  nie zwraca błędu.
+- `/favorites` pokazuje dokładnie zapisane aktywności bieżącego
+  użytkownika i nic z innych kont.
+- Zachowanie `me()` jest niezmienione po wydzieleniu zależności
+  (istniejące testy autoryzacji nadal przechodzą bez modyfikacji).
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

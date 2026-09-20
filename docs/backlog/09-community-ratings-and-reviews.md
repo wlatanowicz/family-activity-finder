@@ -107,3 +107,126 @@ favorites (task 08), but comes after it in this backlog since it reuses the
 - Signed-out users can read ratings but the submit UI shows a sign-in
   prompt instead of a form.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 09. Oceny i recenzje społeczności
+
+#### Podsumowanie
+
+Pozwól zalogowanym rodzicom oceniać (1–5 gwiazdek) i opcjonalnie
+recenzować aktywność; pokaż średnią ocenę i liczbę recenzji na liście
+przeglądania i stronie szczegółów. To pozycja „Oceny społeczności” z
+zakresu MVP w podsumowaniu odkrycia oraz bezpośrednia odpowiedź na
+wskazane w nim wyzwanie „budowanie zaufanej społeczności recenzentów”.
+
+#### Dlaczego
+
+Oceny to kluczowy sygnał zaufania produktu — to, co czyni go lepszym niż
+zwykły katalog. Zależy wyłącznie od autoryzacji (już przygotowanej) oraz
+modelu `Activity` (zadanie 01), więc może zostać dostarczone niezależnie
+od ulubionych (zadanie 08), ale w tym backlogu następuje po nim, ponieważ
+wykorzystuje zależność `get_current_user` wydzieloną w zadaniu 08.
+
+#### Zmiany w backendzie
+
+- Nowa aplikacja `backend/src/apps/ratings/`:
+  - `models.py` — tabela `Rating` o nazwie `ratings`: `id: UUID` pk,
+    `user_id: UUID` (`foreign_key="users.id"`, indeksowane),
+    `activity_id: UUID` (`foreign_key="activities.id"`, indeksowane),
+    `score: int` (1–5, wymuszane walidatorem Pydantic w modelu żądania,
+    a nie ograniczeniem bazy danych, dla uproszczenia migracji),
+    `comment: str | None` (`max_length=1000`), `created_at: datetime`,
+    `updated_at: datetime`. `UniqueConstraint("user_id", "activity_id")`
+    — jedna ocena na użytkownika na aktywność; ponowna ocena aktualizuje
+    istniejący wiersz (upsert), zamiast tworzyć drugi.
+  - `api_errors.py` — `ApiErrorCode.activity_not_found`,
+    `rating_not_found`.
+  - `routes.py`:
+    - `POST /api/activities/{activity_id}/ratings` — wymaga autoryzacji
+      (`Depends(get_current_user)` z `users/deps.py` z zadania 08).
+      Treść `{"score": int, "comment": str | None}`. 404, jeśli
+      aktywność nie istnieje. Tworzy ocenę użytkownika dla tej
+      aktywności lub aktualizuje ją w miejscu, jeśli już istnieje
+      (`updated_at` zaktualizowane).
+    - `GET /api/activities/{activity_id}/ratings` — publiczne, bez
+      autoryzacji. Parametry zapytania `limit`/`offset` (domyślnie
+      `limit=20, offset=0`). Zwraca `{"average_score": float | None,
+      "count": int, "ratings": [{"user_email"-lub-podobna-nazwa-
+      wyświetlana, "score", "comment", "created_at"}, ...]}`. Ustal
+      bezpieczną dla prywatności nazwę wyświetlaną (np. część lokalną
+      adresu e-mail, albo „rodzic” + samo imię, jeśli model `User`
+      zyska kiedyś nazwę wyświetlaną — na razie nie ujawniaj pełnego
+      adresu e-mail; zamaskuj/skróć go, np. wzorzec
+      `j***@example.com`, albo po prostu pomiń tożsamość i pokaż
+      „Zweryfikowany rodzic”).
+    - `DELETE /api/activities/{activity_id}/ratings/me` — wymaga
+      autoryzacji, usuwa ocenę bieżącego użytkownika, jeśli istnieje
+      (idempotentne).
+  - `__init__.py`
+- `backend/src/apps/activities/routes.py`: rozszerz odpowiedzi zarówno
+  `GET /api/activities`, jak i `GET /api/activities/{id}` o
+  `average_rating: float | None` i `ratings_count: int`, wyliczane przez
+  agregat SQL (np. `LEFT JOIN`/podzapytanie względem `ratings`), a nie
+  zdenormalizowane w `Activity` — najprostsze, poprawne podejście dla
+  wolumenu danych MVP.
+- Zarejestruj `ratings_router` w `backend/src/main.py`.
+- Testy w `backend/src/apps/ratings/tests/test_routes.py`: utworzenie, a
+  następnie ponowna ocena tej samej aktywności (upsert, nadal jeden
+  wiersz), 404 dla nieznanej aktywności, poprawność matematyki
+  średniej/liczby przy wielu użytkownikach, usuwanie własnej oceny
+  ograniczone do wywołującego.
+
+#### Zmiany w danych
+
+- `make make-migrations` — nowa tabela `ratings` z ograniczeniem
+  FK/unikalności.
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- `ActivityDetailPage.tsx`:
+  - Średnia ocena + liczba pokazane obok tytułu (np. „★ 4.3 (12 ocen)”).
+  - Widget wprowadzania gwiazdek (1–5) + opcjonalne pole tekstowe na
+    komentarz, widoczny dla zalogowanych użytkowników; wysłanie wywołuje
+    `POST .../ratings`. Jeśli użytkownik już ocenił tę aktywność,
+    wstępnie wypełnij widget jego istniejącą oceną/komentarzem (pobierz
+    jego własną ocenę — albo z listy `GET .../ratings` przez dopasowanie
+    bieżącego użytkownika, albo drobne dodatkowe udogodnienie:
+    odpowiedź `POST` zwraca zapisaną ocenę, zapisz ją po stronie klienta
+    po pierwszym wysłaniu).
+  - Lista recenzji poniżej, stronicowana (`limit`/`offset`), każda
+    pokazuje ocenę, komentarz, zamaskowaną tożsamość, względną datę.
+  - Niezalogowani użytkownicy widzą listę recenzji i średnią, ale
+    przetłumaczony monit o zalogowanie w miejscu widgetu wprowadzania.
+- Karty na stronie przeglądania (`BrowsePage.tsx`): pokaż znacznik
+  średniej oceny (np. „★ 4.3”), gdy `ratings_count > 0`; całkowicie
+  pomiń znacznik, gdy nie ma jeszcze ocen (unikaj pokazywania „★ 0” lub
+  „brak ocen” na każdej karcie).
+- i18n: `ratings.average`, `.count`, `.submit`, `.update`,
+  `.signInToRate`, `.commentPlaceholder`, `.empty` — wszystkie cztery
+  pliki lokalizacji.
+
+#### Poza zakresem
+
+- Moderacja/zgłaszanie nadużyć w recenzjach — oznaczone jako kontynuacja
+  po tym, jak realne użycie pokaże taką potrzebę, a nie budowane z
+  wyprzedzeniem.
+- Załączniki zdjęciowe do recenzji (zadanie 15).
+- Powiązanie recenzji z zapisanym profilem dziecka w celu
+  zanonimizowanego kontekstu (zadanie 16).
+
+#### Kryteria akceptacji
+
+- Ocenienie tej samej aktywności dwukrotnie przez tego samego
+  użytkownika skutkuje jednym wierszem z najnowszą oceną/komentarzem, a
+  nie dwoma.
+- `average_rating`/`ratings_count` w `GET /api/activities` zgadzają się
+  z tym, co raportuje `GET /api/activities/{id}/ratings` dla tej samej
+  aktywności.
+- Niezalogowani użytkownicy mogą czytać oceny, ale UI wysyłania pokazuje
+  monit o zalogowanie zamiast formularza.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

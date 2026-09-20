@@ -72,3 +72,85 @@ None.
   appears in list view for the same filter state.
 - Clicking a marker's popup link navigates to that activity's detail page.
 - `make check` passes; `cd frontend && npm run build` succeeds.
+
+---
+
+## Tłumaczenie (PL)
+
+### 13. Widok mapy z aktywnościami
+
+#### Podsumowanie
+
+Dodaj do strony przeglądania widok mapy pokazujący każdą przefiltrowaną
+aktywność jako znacznik w miejscu jej współrzędnych, obok istniejącego
+widoku listy. To pomysł „mapa z zaznaczonymi miejscami” z
+`docs/backlog/IDEAS.md` — dosłowna mapa z zaznaczonymi miejscami, a nie
+tylko sortowanie po odległości, które dostarcza już zadanie 06.
+
+#### Dlaczego
+
+Zadanie 06 dodało współrzędne i sortowanie „w pobliżu”, ale wprost
+wyłączyło samą mapę poza zakres („to zadanie dodaje tylko sortowanie
+listy, bez wizualnej mapy”). Rodzice przeglądający „co jest w okolicy”
+często myślą przestrzennie, a mapa to najbardziej bezpośrednia odpowiedź
+na to — to też jedyny pomysł w `IDEAS.md`, który nie ma jeszcze żadnego
+zadania.
+
+#### Zmiany w backendzie
+
+Brak — wykorzystuje `GET /api/activities` (łącznie z
+`latitude`/`longitude` z zadania 06 oraz każdym filtrem z zadań 03–07);
+mapa to prezentacja we frontendzie tych samych danych, które już pobiera
+widok listy.
+
+#### Zmiany w danych
+
+Brak.
+
+#### Zmiany we frontendzie
+
+- Dodaj bibliotekę map do `frontend/package.json` — preferuj
+  `react-leaflet` + `leaflet` z kafelkami OpenStreetMap (bez potrzeby
+  klucza API/rozliczeń, w przeciwieństwie do Google Maps czy Mapbox —
+  brak blokady w postaci konfiguracji konta u dostawcy).
+- `BrowsePage.tsx`: dodaj przełącznik widoku lista/mapa (np.
+  `SegmentedControl`). Widok mapy renderuje jeden znacznik na każdą
+  aktywność z niepustym `latitude`/`longitude` z bieżącego przefiltrowanego
+  zbioru wyników; aktywności bez współrzędnych są pomijane na mapie
+  (nadal pojawiają się w widoku listy), z małą przetłumaczoną notatką
+  („N aktywności bez lokalizacji nie jest pokazanych na mapie”).
+  - Kliknięcie/dotknięcie znacznika otwiera dymek z nazwą, znacznikiem
+    kategorii i linkiem „Zobacz szczegóły” do strony szczegółów z
+    zadania 02.
+  - Mapa ponownie centruje/dopasowuje granice widoku do widocznych
+    znaczników przy zmianie filtrów.
+  - Jeśli „Użyj mojej lokalizacji” (zadanie 06) jest aktywne, pokaż
+    pozycję użytkownika jako odrębny znacznik/ikonę i wyśrodkuj na niej
+    początkowy widok; w przeciwnym razie domyślnie dopasuj początkowy
+    widok do wszystkich znaczników (lub neutralny widok świata/regionu,
+    gdy ich brak).
+- i18n: `browse.viewList`, `.viewMap`, `.mapMissingLocations` —
+  wszystkie cztery pliki lokalizacji.
+
+#### Poza zakresem
+
+- Rysowanie/zaznaczanie obszaru wyszukiwania na mapie (np. „szukaj w tym
+  obszarze”) — dla MVP filtrowanie pozostaje sterowane istniejącym
+  paskiem filtrów i przyciskiem lokalizacji, a nie interakcją z mapą.
+- Grupowanie znaczników przy małym przybliżeniu — akceptowalne do
+  pominięcia, dopóki wolumen aktywności po starcie jest niski; wróć do
+  tematu, jeśli gęstość znaczników uczyni mapę nieczytelną.
+- Wybieranie współrzędnych na mapie w formularzu administracyjnym
+  (zadanie 12) — tam już wprost poza zakresem.
+
+#### Kryteria akceptacji
+
+- Przełączenie na widok mapy pokazuje jeden znacznik na każdą
+  przefiltrowaną aktywność ze współrzędnymi, a zastosowanie filtra (np.
+  wnętrze/na zewnątrz z zadania 03) aktualizuje pokazywane znaczniki.
+- Aktywność z pustymi współrzędnymi nigdy nie pojawia się na mapie, ale
+  nadal pojawia się w widoku listy dla tego samego stanu filtrów.
+- Kliknięcie linku w dymku znacznika nawiguje do strony szczegółów tej
+  aktywności.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.

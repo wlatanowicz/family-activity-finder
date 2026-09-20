@@ -81,3 +81,98 @@ they show up.
 
 - Task 12 (admin activity management) should add `suitable_for_gender` to
   its create/edit form field set alongside the other tasks 01–07 columns.
+
+---
+
+## Tłumaczenie (PL)
+
+### 14. Filtr dopasowania do płci
+
+#### Podsumowanie
+
+Dodaj opcjonalny znacznik dopasowania do płci dla każdej aktywności (np.
+zajęcia taneczne oznaczone „dziewczynki”, klinika piłkarska oznaczona
+„chłopcy”, większość aktywności pozostaje nieoznaczona/„wszyscy”) i
+pozwól rodzicom filtrować po nim listę przeglądania. To druga połowa
+pomysłu „filtrowanie po wieku/płci” z `docs/backlog/IDEAS.md` — połowa
+dotycząca wieku została już dostarczona jako zadanie 04.
+
+#### Dlaczego
+
+Zadanie 04 obejmuje wiek, ale nie płeć; `IDEAS.md` wymienia oba w tym
+samym pomyśle. Niektóre aktywności w praktyce są marketowane/prowadzone
+jako specyficzne dla płci (niektóre zajęcia taneczne, sportowe czy
+harcerskie), więc udostępnienie tego jako filtra pozwala uniknąć sytuacji,
+w której rodzic znajduje aktywność, która na miejscu okazuje się
+niedopasowana do jego dziecka.
+
+#### Zmiany w backendzie
+
+- `backend/src/apps/activities/models.py` — dodaj do `Activity`:
+  - `suitable_for_gender: str | None` — `max_length=10`, puste. Puste
+    oznacza „wszystkie płcie” (najczęstszy przypadek) — nie wymagaj, aby
+    każda aktywność miała to ustawione. Waliduj względem listy
+    `Literal`/stałych na poziomie API (odzwierciedlając podejście
+    `category` z zadania 01): `girls`, `boys`, `all`. Wiersz może też
+    mieć po prostu `None`, traktowane identycznie jak `all`.
+- `backend/src/apps/activities/routes.py` — rozszerz `GET /api/activities`
+  o opcjonalny parametr zapytania `gender: Literal["girls", "boys"] |
+  None`. Gdy ustawiony, zwróć wiersze, gdzie `suitable_for_gender IS
+  NULL OR suitable_for_gender IN ('all', <gender>)` — czyli aktywności
+  specyficzne dla przeciwnej płci są wykluczane, ale nieoznaczone/„all”
+  zawsze pasują. Połącz operatorem `AND` z każdym innym filtrem (zadania
+  03–07).
+- Rozszerz `test_routes.py`: `gender=girls` obejmuje aktywności oznaczone
+  `girls`, `all` i puste, wyklucza `boys`; brak parametru `gender` zwraca
+  wszystko bez filtrowania.
+
+#### Zmiany w danych
+
+- `make make-migrations` — nowa pusta kolumna, bez potrzeby uzupełniania
+  danych wstecz (istniejące/nowe wiersze domyślnie są „all” poprzez
+  `None`).
+- `make migrate`.
+
+#### Zmiany we frontendzie
+
+- Pasek filtrów w `BrowsePage.tsx`: dodaj `SegmentedControl`/`Select`
+  „Dopasowane do” z opcjami „Wszyscy”, „Dziewczynki”, „Chłopcy”
+  (domyślnie „Wszyscy”, co oznacza brak zastosowanego filtra — nie
+  „pokaż tylko nieoznaczone aktywności”), podpięty do tego samego stanu
+  filtrów `useSearchParams` co zadania 03–04 (`?gender=girls`).
+- Pokaż znacznik na kartach aktywności/stronie szczegółów tylko, gdy
+  `suitable_for_gender` jest ustawione na `girls` lub `boys` (całkowicie
+  pomiń znacznik dla `all`/pustego, zgodnie z istniejącą konwencją
+  znacznika oceny z zadania 09, by nie zaśmiecać typowego przypadku).
+- i18n: `filters.gender.label`, `.all`, `.girls`, `.boys`,
+  `activities.genderBadge.girls`, `.boys` — wszystkie cztery pliki
+  lokalizacji.
+
+#### Poza zakresem
+
+- Jakiekolwiek wnioskowanie/automatyczne oznaczanie dopasowania do płci
+  na podstawie nazwy lub kategorii aktywności — to zwykłe pole
+  wprowadzane przez administratora (zadanie 12 rozszerza formularz
+  administracyjny o nie obsługę), a nie heurystyka.
+- Kategorie niebinarne/inne poza „dziewczynki / chłopcy / wszyscy” —
+  ograniczone do trzech wartości wymienionych w źródłowym pomyśle; wróć
+  do tematu, jeśli realna treść będzie wymagać większej granulacji.
+
+#### Kryteria akceptacji
+
+- `GET /api/activities?gender=girls` obejmuje aktywności oznaczone
+  `girls` lub `all` lub z nieustawionym polem, i wyklucza oznaczone
+  `boys`.
+- Filtr płci poprawnie łączy się z filtrami wieku (zadanie 04) i
+  wnętrze/na zewnątrz/czas trwania (zadanie 03) w tym samym query
+  stringu.
+- Karty aktywności z nieustawionym/`all` `suitable_for_gender` nie
+  pokazują znacznika płci.
+- `make check` przechodzi; `cd frontend && npm run build` kończy się
+  sukcesem.
+
+#### Kontynuacja w innych zadaniach
+
+- Zadanie 12 (zarządzanie aktywnościami przez administratora) powinno
+  dodać `suitable_for_gender` do zestawu pól formularza
+  tworzenia/edycji, obok pozostałych kolumn z zadań 01–07.
