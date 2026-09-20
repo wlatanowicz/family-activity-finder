@@ -1,9 +1,10 @@
 # Backlog
 
 Execution-ordered implementation backlog for the Family Activity Finder MVP,
-derived from [`docs/discovery_summary.md`](../discovery_summary.md). Each
-numbered file is one deliverable, full-stack task (backend + frontend + data,
-where applicable) that can be built, reviewed, and shipped on its own.
+derived from [`docs/discovery_summary.md`](../discovery_summary.md) and
+[`IDEAS.md`](IDEAS.md). Each numbered file is one deliverable task (backend +
+web frontend + data, or a mobile screen against the existing API, where
+applicable) that can be built, reviewed, and shipped on its own.
 
 ## Ordering rationale
 
@@ -29,6 +30,13 @@ where applicable) that can be built, reviewed, and shipped on its own.
    linking a saved child profile to a review for anonymized display context
    (16). Each depends on the earlier task it extends (06, 04, 09, and 09+10
    respectively) and is otherwise independent of the others.
+7. **17–20** build the React Native + Expo mobile apps `IDEAS.md` asks for,
+   sharing the same backend API as the web frontend rather than a fork of
+   it: bootstrap + auth (17), then browse/detail/filters (18),
+   favorites/ratings/photos/child-context (19), and child profiles/
+   recommendations (20) — each porting the equivalent web task(s) to a
+   native screen with no new backend work. Admin (12) and the map view
+   (13) are deliberately not ported — see each mobile task's Out of scope.
 
 ## Status tracking
 
@@ -74,3 +82,7 @@ than a separate system.
 | 14 | Gender-suitability filter | 01–02, 04 |
 | 15 | Review photo attachments | 09 |
 | 16 | Anonymized child context on reviews | 09, 10 |
+| 17 | Mobile app bootstrap and auth | auth (template) |
+| 18 | Mobile browse, detail, and filters | 17, 01–07 |
+| 19 | Mobile favorites and ratings | 17–18, 08, 09, 15, 16 |
+| 20 | Mobile child profiles and personalized recommendations | 17–18, 10, 11 |

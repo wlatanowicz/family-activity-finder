@@ -9,3 +9,4 @@ ocenianie z mozliwoscia dodowania opisu i zdjec
 profil dziecka (kilka na uzytkownika) - uzywany przy filtrowaniu i dodawaniu opinii. Profil nie jest widoczny dla innych - uzywamy zaononimizowanych danych przy opiniach
 
 
+Build iOS and Android apps in React Native + Expo. Mobile apps and web interface should use the same backend API.
