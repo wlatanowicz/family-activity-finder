@@ -1,0 +1,9 @@
+{
+  "name": "family-activity-finder",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "mobile",
+    "packages/*"
+  ]
+}
